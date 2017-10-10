@@ -1,0 +1,13 @@
+import win32com.client
+    def invokeMacroToGenCSVFile(self, excelFile):
+        if os.path.exists(excelFile):
+            try:
+                excelApp = win32com.client.Dispatch("Excel.Application")
+                excelApp.WorkBooks.open(excelFile)
+                excelApp.Run("exportModelCSVFile")  # Run Macro in Iub Template
+                excelApp.Quit()
+            except:
+                excelApp.Quit()
+                raise
+        else:
+            raise Exception('can not find the file %s\n Please check it' %(excelFile))
