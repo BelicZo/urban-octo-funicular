@@ -1,0 +1,114 @@
+#!/usr/bin/python
+# coding:utf-8
+
+import re
+import time
+import os
+import requests
+import base64
+import urllib2
+import urlparse
+import xlrd
+import threading
+from bs4 import BeautifulSoup
+
+
+class CrawDyttLink(object):
+    """
+     爬取电影天堂2017电影的迅雷链接
+    """
+    def __init__(self, root_url):
+        self.root_url = root_url
+        self.new_urls = list()
+        self.old_urls = list()
+        self.data = list()
+
+    def run(self):
+        self.add_new_url(self.root_url)
+        count = 1
+        while True:
+            url = self.get_new_url()
+            print u"获取第 %d 个链接: %s" % (count, url)
+            if not url:
+                break
+            # html_content = requests.get(url).
+            html_content = urllib2.urlopen(url).read()
+            self.html_parser(html_content.decode('gbk'))
+            count += 1
+            if count == 50:
+                break
+        self.data_output()
+
+    def html_parser(self, content):
+        data = {}
+        soup = BeautifulSoup(content, 'html.parser', from_encoding="utf-8")
+        # 解析页面中的url
+        links = soup.find_all("a", href=re.compile(r'^/html/.*'))
+        for link in links:
+            new_url = link["href"]
+            new_full_url = urlparse.urljoin(self.root_url, new_url)
+            self.add_new_url(new_full_url)
+
+        # 解析页面中的下载链接
+        try:
+            data['download_link'] = "thunder://" + base64.b64encode("AA" + \
+                                    soup.find('a', href=re.compile(r'ftp://.*'))['href'].encode("utf-8") + "ZZ")
+            data['title'] = re.search(r'][\.]?(.*).', soup.find('a', href=re.compile(r'ftp://.*'))['href']).group(1)
+            data["info"] = soup.find('span', style="FONT-SIZE: 12px").find('p').get_text('\n')
+            print(u"取到一个资源: %s 链接: %s" % (data['title'], data['download_link']))
+            self.data.append(data)
+            # self.data_output(data)
+
+        except Exception as e:
+            print "此页面没有可下载链接 %s" % e
+
+    def add_new_url(self, url):
+        if url not in self.new_urls and url not in self.old_urls:
+            self.new_urls.append(url)
+
+    def get_new_url(self):
+        if self.new_urls:
+            get_url = self.new_urls.pop()
+            self.old_urls.append(get_url)
+            return get_url
+        else:
+            return None
+
+    def data_output(self):
+        with open("output_data.md", 'w+') as f:
+            # fout.write("<html>")
+            # fout.write("<body>")
+            # fout.write("<table>")
+            #
+            # for data in self.data:
+            #     fout.write("<tr>")
+            #     fout.write("<td>%s</td>" % data["download_link"].encode('utf-8'))
+            #     fout.write("<td>%s</td>" % data["title"].encode('utf-8'))
+            #     fout.write("<td>%s</td>" % data["info"].encode('utf-8'))
+            #     fout.write("</tr>")
+            #
+            # fout.write("</table>")
+            # fout.write("</body>")
+            # fout.write("</html>")
+
+
+            # fieldnames = ["title", "link", "info"]
+            # writer = csv.DictWriter(f, fieldnames=fieldnames)
+            #
+            # writer.writeheader()
+            # # writer.writerow(data)
+            # writer.writerow({"title": data['title'],
+            #                  "link": data['download_link'],
+            #                  "info": data['info']})
+
+            f.write("|电影名称|电影链接|\n")
+            f.write("|--------|--------|\n")
+            for data in self.data:
+                f.write("|"+data["title"].encode('utf-8')+"|"+data["download_link"].encode('utf-8')+'|\n')
+
+import csv
+if __name__ == "__main__":
+    root_url = 'http://www.dytt8.net'
+    t = CrawDyttLink(root_url)
+    t.run()
+
